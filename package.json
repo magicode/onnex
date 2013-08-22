@@ -1,6 +1,10 @@
 {
   "name": "onnex",
   "description": "rpc & pubsub",
+  "repository" : {
+        "type" : "git",
+        "url" : "https://github.com/magicode/onnex.git"
+  },
   "version": "0.1.0",
   "author": "magicode",
   "keywords": [
