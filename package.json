@@ -1,6 +1,7 @@
 {
   "name": "onnex",
   "description": "rpc & pubsub",
+  "main": "./onnex",
   "repository" : {
         "type" : "git",
         "url" : "https://github.com/magicode/onnex.git"
