@@ -1,0 +1,12 @@
+{
+  "name": "onnex",
+  "description": "rpc & pubsub",
+  "version": "0.0.1",
+  "author": "magicode",
+  "keywords": [
+    "pubsub",
+    "socket",
+    "ipc",
+    "rpc"
+  ]
+}
