@@ -409,4 +409,4 @@ exports.create = function( options ){
     return new onnex( options );
 };
 
-exports.onnex = onnex;
+exports.Onnex = onnex;
