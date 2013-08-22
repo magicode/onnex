@@ -1,4 +1,3 @@
-
 # Onnex
 
  rpc & subpub
@@ -11,46 +10,51 @@
 ## Exemple
 
 
+
+### onnex A
+be server
+
 ```js
 
-var onnex = require("./onnex");
+var onnex = require("./");
 
-var onnexServer = onnex.create();
-var onnexClient = onnex.create();
+var onnexA = onnex.create();
 
-onnexServer.addFunction("multi",function( a , b ){
+onnexA.addFunction("multi",function( a , b ){
     var cb = Array.prototype.slice.call(arguments).pop();
     cb(null,  a * b );
 });
 
-onnexServer.publish("time tick");
+onnexA.publish("time tick");
 
 setInterval(function(){
     
-    onnexServer.publish("time tick", new Date().getTime() );
+    onnexA.publish("time tick", new Date().getTime() );
     
 } , 1000 );
 
-onnexServer.addBind({ port: 8080 } ,function(server){
-   
-   var socket = onnexClient.addConnect({ port: 8080 }, function(){
-    
-     
-        socket.subscribe("time tick",function( time ){
-            console.log("time :" , new Date(time));
-        });
-        
-        
+onnexA.addBind({ port: 8080 });
+```
 
-        socket.callFunction("multi", 2 , 3  , function( err , result ){
-            console.log("2 * 3 :" , result);
-        });
-        
-        
-        
+
+
+### onnex B 
+be client
+```js
+var onnex = require("./");
+
+var onnexB = onnex.create();
+
+var socket = onnexB.addConnect({ port: 8080 }, function(){
+    
+    socket.subscribe("time tick",function( time ){
+        console.log("time :" , new Date(time));
     });
-    
+        
+    socket.callFunction("multi", 2 , 3  , function( err , result ){
+        console.log("2 * 3 :" , result);
+    });
+          
 });
-
 
 ```
