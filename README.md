@@ -5,7 +5,7 @@
 
 ## Installation
 
-    $ npm install axon
+    $ npm install onnex
 
 
 ## Exemple
