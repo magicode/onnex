@@ -13,15 +13,10 @@
 
 ```js
 
-
-
-
 var onnex = require("./onnex");
-
 
 var onnexServer = onnex.create();
 var onnexClient = onnex.create();
-
 
 onnexServer.addFunction("multi",function( a , b ){
     var cb = Array.prototype.slice.call(arguments).pop();
@@ -38,7 +33,6 @@ setInterval(function(){
 
 onnexServer.addBind({ port: 8080 } ,function(server){
    
-      
    var socket = onnexClient.addConnect({ port: 8080 }, function(){
     
      
@@ -55,7 +49,6 @@ onnexServer.addBind({ port: 8080 } ,function(server){
         
         
     });
-    
     
 });
 
