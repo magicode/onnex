@@ -21,14 +21,28 @@ Buffer.prototype.readUInt24LE = function( offset ){
 
 function onnex( options ){
 
-    this.options = options | {};
+    this.options = options || {};
     this.options.retry = 2000;
     this.servers = [];
     this.sockets = [];
-    this.socketDefault = false;
+    this._socketDefault = false;
 
     this.functions = {};
     this.publishs = {};
+    
+    
+    Object.defineProperty(this, "socketDefault",
+    {
+        get : function () {  
+            
+            if( this._socketDefault instanceof net.Socket &&  this._socketDefault.writable && this._socketDefault.readable) return this._socketDefault ;
+            
+            for(var i in this.sockets)
+                if( this.sockets[i] instanceof net.Socket && this.sockets[i].writable && this.sockets[i].readable) return  this._socketDefault = this.sockets[i];
+            
+        }
+    })
+
 }
 
 util.inherits( onnex , EventEmitter );
@@ -83,16 +97,26 @@ onnex.prototype.addConnect = function( options , cb ){ //
     this.sockets.push(socket);
     this._socketEvents(socket);
 
+    
     socket.on("error",function(err){
-        
-        if(_this.options.retry && ~ignore.indexOf(err.code))
+
+        if(_this.options.retry && !!~ignore.indexOf(err.code))
         {
-                setTimeout(function(){
-                    _this.addConnect( options , cb);
-                }, _this.options.retry);
+            setTimeout(function(){
+                socket.emit("reconnect" , _this.addConnect( options , cb ) );
+            }, _this.options.retry);
         }
     });
+    
+    if( options.alwaysConnect )
+        socket.on("end",function(){
+            socket.emit("reconnect" , _this.addConnect( options , cb ) );
+        });
+    
+    this.emit("connect" , socket );
+    
     return socket;
+
 
 };
 
@@ -105,7 +129,6 @@ onnex.prototype.end = function(){
 
 onnex.prototype._socketEvents = function( socket ){
 
-    if(!this.socketDefault) this.socketDefault = socket;
     
     socket.callbacks = {};
     socket.subscribes = {};
@@ -187,7 +210,7 @@ onnex.prototype._socketEvents = function( socket ){
                 for( ;nameEnd < p.buffer.length ; nameEnd++ ) if(p.buffer[nameEnd] == 0xff) break;
                 
                 callbackId = p.buffer.readUInt32LE(0);
-                name =  p.buffer.toString("utf8", 4 ,nameEnd )
+                name =  p.buffer.toString("utf8", 4 ,nameEnd );
                 args = {};
 
                 try{
@@ -283,14 +306,22 @@ onnex.prototype._socketEvents = function( socket ){
         var argsBuffer = new Buffer(JSON.stringify(args));
 
         var buff = new Buffer( 4 + nameBuffer.length + 1 + 1 + argsBuffer.length);
-
-        buff.writeUInt32LE( socket.addCallback(callback) || 0 , 0 );
+        
+        var reargs = arguments;
+        var recall = function(resocket){ resocket.callFunction.apply(null,reargs); };
+        
+        buff.writeUInt32LE( socket.addCallback(function(){
+            callback.apply(null,arguments);
+            socket.removeListener('reconnect', recall);
+        }) || 0 , 0 );
         nameBuffer.copy(buff, 4);
         buff[ nameBuffer.length + 4 ] = 0xff;
         buff[ nameBuffer.length + 5 ] = 0x1;
         argsBuffer.copy(buff, nameBuffer.length + 6 );
 
         socket.sendPackage(buff , -1);
+        
+        socket.once('reconnect', recall);
     };
     
     socket.callCallback = function( id , args ){
@@ -323,6 +354,9 @@ onnex.prototype._socketEvents = function( socket ){
 
     socket.subscribe = function( name , fn ){
       
+        var reargs = arguments;
+        var recall = function(resocket){ resocket.subscribe.apply(null,reargs); };
+         
         if(socket.subscribes.hasOwnProperty(name))
             socket.subscribes[name].push(fn);
         else
@@ -331,6 +365,7 @@ onnex.prototype._socketEvents = function( socket ){
         var nameBuffer = new Buffer( name );
         socket.sendPackage( nameBuffer , -2);
         
+        socket.once('reconnect', recall);
     };
     
     socket.publish = function( name ){
@@ -380,14 +415,17 @@ onnex.prototype._socketEvents = function( socket ){
 
 
 
+onnex.prototype.callFunction = function(){
+    this.socketDefault.callFunction.apply(null, arguments);
+};
+
 onnex.prototype.addFunction = function( name , fn ){
         this.functions[name] = fn;
 };
-    
 
-onnex.prototype.subscribe = function( name  ){
+onnex.prototype.subscribe = function(){    
      for(var i in this.sockets)
-        this.sockets[i].subscribe( name );
+        this.sockets[i].subscribe.apply(null,arguments);
 };
 
 onnex.prototype.publish = function( name ){
@@ -400,7 +438,6 @@ onnex.prototype.publish = function( name ){
     
     for(var i in this.sockets)
         this.sockets[i].publish.apply(null,arguments);
-    
     
 };
 

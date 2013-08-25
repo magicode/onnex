@@ -7,7 +7,7 @@
     $ npm install onnex
 
 
-## Exemple
+## Example
 
 
 
@@ -16,7 +16,7 @@ be server
 
 ```js
 
-var onnex = require("./");
+var onnex = require("onnex");
 
 var onnexA = onnex.create();
 
@@ -28,9 +28,7 @@ onnexA.addFunction("multi",function( a , b ){
 onnexA.publish("time tick");
 
 setInterval(function(){
-    
     onnexA.publish("time tick", new Date().getTime() );
-    
 } , 1000 );
 
 onnexA.addBind({ port: 8080 });
@@ -41,20 +39,15 @@ onnexA.addBind({ port: 8080 });
 ### onnex B 
 be client
 ```js
-var onnex = require("./");
+var onnex = require("onnex");
 
-var onnexB = onnex.create();
-
-var socket = onnexB.addConnect({ port: 8080 }, function(){
+onnexB.addConnect({ port: 8080 , alwaysConnect: true});
     
-    socket.subscribe("time tick",function( time ){
+onnexB.subscribe("time tick",function( time ){
         console.log("time :" , new Date(time));
-    });
-        
-    socket.callFunction("multi", 2 , 3  , function( err , result ){
-        console.log("2 * 3 :" , result);
-    });
-          
 });
-
+        
+onnexB.callFunction("multi", 2 , 3  , function( err , result ){
+        console.log("2 * 3 :" , result);
+});
 ```
