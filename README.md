@@ -41,7 +41,7 @@ be client
 ```js
 var onnex = require("onnex");
 
-var onnexA = onnex.create();
+var onnexB = onnex.create();
 
 onnexB.addConnect({ port: 8080 , alwaysConnect: true});
     
