@@ -41,6 +41,8 @@ be client
 ```js
 var onnex = require("onnex");
 
+var onnexA = onnex.create();
+
 onnexB.addConnect({ port: 8080 , alwaysConnect: true});
     
 onnexB.subscribe("time tick",function( time ){
