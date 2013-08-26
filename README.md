@@ -15,7 +15,6 @@
 be server
 
 ```js
-
 var onnex = require("onnex");
 
 var onnexA = onnex.create();

@@ -40,6 +40,7 @@ function onnex( options ){
             for(var i in this.sockets)
                 if( this.sockets[i] instanceof net.Socket && this.sockets[i].writable && this.sockets[i].readable) return  this._socketDefault = this.sockets[i];
             
+            return this._socketDefault || this.sockets[0] || false;
         }
     })
 
