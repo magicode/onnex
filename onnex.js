@@ -90,30 +90,14 @@ var ignore = [
               'EPIPE'
             ];
 
-onnex.prototype.addConnect = function( options , cb ){ //
-    var _this = this;
+onnex.prototype.addConnect = function( options , cb ){ 
+    
     var socket = ( options.tls ?  tls : net ).createConnection( options , cb );
 
 
     this.sockets.push(socket);
-    this._socketEvents(socket);
+    this._socketEvents(socket , options , cb );
 
-    
-    socket.on("error",function(err){
-
-        if(_this.options.retry && !!~ignore.indexOf(err.code))
-        {
-            setTimeout(function(){
-                socket.emit("reconnect" , _this.addConnect( options , cb ) );
-            }, _this.options.retry);
-        }
-    });
-    
-    if( options.alwaysConnect )
-        socket.on("end",function(){
-            socket.emit("reconnect" , _this.addConnect( options , cb ) );
-        });
-    
     this.emit("connect" , socket );
     
     return socket;
@@ -128,16 +112,34 @@ onnex.prototype.end = function(){
 
 };
 
-onnex.prototype._socketEvents = function( socket ){
-
+onnex.prototype._socketEvents = function( socket ,options , cb){
+    
+    var _this = this;
     
     socket.callbacks = {};
     socket.subscribes = {};
     socket.publishs = {};
     
+    var oldEnd = socket.end ;
+    socket.end = function(){
+        socket._noReconnect = true;
+        oldEnd.apply(this,arguments);
+    };
+    
+    socket.on("error",function(err){
+
+        if(_this.options.retry && !!~ignore.indexOf(err.code))
+        {
+            setTimeout(function(){
+                socket.emit("reconnect" , _this.addConnect( options , cb ) );
+            }, _this.options.retry);
+        }
+    });
+    
+    
     var _lastId = 0;
     
-    var _this = this;
+    
 
     var p = {};
     var dataLeft = {};
@@ -409,6 +411,8 @@ onnex.prototype._socketEvents = function( socket ){
 
 
     socket.on('end', function(){
+        if( options && options.alwaysConnect &&  !socket._noReconnect)
+            socket.emit("reconnect" , _this.addConnect( options , cb ) );
         _this.sockets.splice( _this.sockets.indexOf(socket) , 1 );
     });
 
