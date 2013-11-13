@@ -2,7 +2,6 @@
 var net = require("net");
 var tls = require('tls');
 var util = require('util');
-var stream = require('stream');
 var EventEmitter = require('events').EventEmitter;
 
 
@@ -22,7 +21,12 @@ Buffer.prototype.readUInt24LE = function( offset ){
 function onnex( options ){
 
     this.options = options || {};
-    this.options.retry = 2000;
+    
+    var defaultOptions = { retry: 2000 , timeout: 0 };
+    
+    for(var key in defaultOptions)
+        if(!(key in this.options)) this.options[key] = defaultOptions[key];
+    
     this.servers = [];
     this.sockets = [];
     this._socketDefault = false;
@@ -42,7 +46,7 @@ function onnex( options ){
             
             return this._socketDefault || this.sockets[0] || false;
         }
-    })
+    });
 
 }
 
@@ -108,7 +112,10 @@ onnex.prototype.addConnect = function( options , cb ){
 onnex.prototype.end =  onnex.prototype.closeAll = function(){
 
     for(var i in this.servers) this.servers[i].close();
-    for( i in this.sockets) this.sockets[i].end();
+    for( i in this.sockets) {
+        this.sockets[i].end();
+        this.sockets[i].destroy();
+    }
 
 };
 
@@ -126,12 +133,19 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         oldEnd.apply(this,arguments);
     };
     
+    socket.reconnectCount = 0;
+    socket.reconnect = function(){
+        socket.reconnectCount++;
+        socket.connect( options );
+    };
+    
     socket.on("error",function(err){
 
         if(_this.options.retry && !!~ignore.indexOf(err.code))
         {
             setTimeout(function(){
-                socket.emit("reconnect" , _this.addConnect( options , cb ) );
+                socket.reconnect();
+                //socket.emit("reconnect" , _this.addConnect( options , cb ) );
             }, _this.options.retry);
         }
     });
@@ -313,9 +327,17 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         var reargs = arguments;
         var recall = function(resocket){ resocket.callFunction.apply(null,reargs); };
         
+        var timeout;
+        if(_this.options.timeout > 0 && 'number' == typeof _this.options.timeout)
+            timeout = setTimeout(function() {
+                callback({ error: "timeout" });
+                callback  = function(){};
+            }, _this.options.timeout );
+            
         buff.writeUInt32LE( socket.addCallback(function(){
+            clearTimeout(timeout);
             callback.apply(null,arguments);
-            socket.removeListener('reconnect', recall);
+            //socket.removeListener('reconnect', recall);
         }) || 0 , 0 );
         nameBuffer.copy(buff, 4);
         buff[ nameBuffer.length + 4 ] = 0xff;
@@ -324,7 +346,10 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
 
         socket.sendPackage(buff , -1);
         
-        socket.once('reconnect', recall);
+        
+            
+        
+        //socket.once('reconnect', recall);
     };
     
     socket.callCallback = function( id , args ){
@@ -411,9 +436,11 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
 
 
     socket.on('end', function(){
-        if( options && options.alwaysConnect &&  !socket._noReconnect)
-            socket.emit("reconnect" , _this.addConnect( options , cb ) );
-        _this.sockets.splice( _this.sockets.indexOf(socket) , 1 );
+        if( options && options.alwaysConnect &&  !socket._noReconnect){
+             socket.reconnect();
+        }else{
+            _this.sockets.splice( _this.sockets.indexOf(socket) , 1 );
+        }
     });
 
 };
