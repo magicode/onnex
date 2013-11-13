@@ -105,7 +105,7 @@ onnex.prototype.addConnect = function( options , cb ){
 
 };
 
-onnex.prototype.end = function(){
+onnex.prototype.end =  onnex.prototype.closeAll = function(){
 
     for(var i in this.servers) this.servers[i].close();
     for( i in this.sockets) this.sockets[i].end();
