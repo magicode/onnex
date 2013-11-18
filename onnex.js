@@ -238,7 +238,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
                 if(_this.functions.hasOwnProperty(name)){
                     args.push(function(){ socket.callCallback( callbackId, Array.prototype.slice.call(arguments));  });
                     
-                    _this.functions[name].apply(null,args);
+                    _this.functions[name].apply(socket,args);
                     
                 }else{
                       socket.callCallback( callbackId, [{ code: "NOTFOUNDFUNCTION" }]);
@@ -256,7 +256,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
                
                 if(socket.callbacks.hasOwnProperty(callbackId)) 
                 {
-                    socket.callbacks[callbackId].apply(null,args);
+                    socket.callbacks[callbackId].apply(socket,args);
                     delete socket.callbacks[callbackId];
                 }
                 break;
@@ -288,7 +288,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
                 {
                     for(i in socket.subscribes[name])
                     {
-                        socket.subscribes[name][i].apply(null,args);
+                        socket.subscribes[name][i].apply(socket,args);
                     }
                 }
                 break;
@@ -324,9 +324,6 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
 
         var buff = new Buffer( 4 + nameBuffer.length + 1 + 1 + argsBuffer.length);
         
-        var reargs = arguments;
-        var recall = function(resocket){ resocket.callFunction.apply(null,reargs); };
-        
         var timeout;
         if(_this.options.timeout > 0 && 'number' == typeof _this.options.timeout)
             timeout = setTimeout(function() {
@@ -336,7 +333,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
             
         buff.writeUInt32LE( socket.addCallback(function(){
             clearTimeout(timeout);
-            callback.apply(null,arguments);
+            callback.apply(socket,arguments);
             //socket.removeListener('reconnect', recall);
         }) || 0 , 0 );
         nameBuffer.copy(buff, 4);
@@ -345,11 +342,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         argsBuffer.copy(buff, nameBuffer.length + 6 );
 
         socket.sendPackage(buff , -1);
-        
-        
-            
-        
-        //socket.once('reconnect', recall);
+
     };
     
     socket.callCallback = function( id , args ){
@@ -383,7 +376,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
     socket.subscribe = function( name , fn ){
       
         var reargs = arguments;
-        var recall = function(resocket){ resocket.subscribe.apply(null,reargs); };
+        var recall = function(resocket){ resocket.subscribe.apply(socket,reargs); };
          
         if(socket.subscribes.hasOwnProperty(name))
             socket.subscribes[name].push(fn);
