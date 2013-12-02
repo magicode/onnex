@@ -22,7 +22,7 @@ function onnex( options ){
 
     this.options = options || {};
     
-    var defaultOptions = { retry: 2000 , timeout: 0 };
+    var defaultOptions = { retry: 500 , timeout: 0 , timeoutWrite: 0 };
     
     for(var key in defaultOptions)
         if(!(key in this.options)) this.options[key] = defaultOptions[key];
@@ -68,7 +68,7 @@ onnex.prototype.addBind = function( options , cb ){
     this.servers.push( server );
 
     server.on('connection',function(socket){
-
+        socket._noReconnect = true;
         _this.sockets.push(socket);
         _this._socketEvents(socket);
         _this.emit('connection',socket );
@@ -109,14 +109,18 @@ onnex.prototype.addConnect = function( options , cb ){
 
 };
 
+
+
+
 onnex.prototype.end =  onnex.prototype.closeAll = function(){
 
     for(var i in this.servers) this.servers[i].close();
     for( i in this.sockets) {
+        this.sockets[i]._noReconnect = true;
         this.sockets[i].end();
         this.sockets[i].destroy();
     }
-
+ 
 };
 
 onnex.prototype._socketEvents = function( socket ,options , cb){
@@ -127,28 +131,32 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
     socket.subscribes = {};
     socket.publishs = {};
     
+    /*
     var oldEnd = socket.end ;
     socket.end = function(){
-        socket._noReconnect = true;
+        
         oldEnd.apply(this,arguments);
     };
+    */
+    
+    
     
     socket.reconnectCount = 0;
+    var reconnectNow = false;
     socket.reconnect = function(){
-        socket.reconnectCount++;
-        socket.connect( options );
+	
+        if(reconnectNow ||  socket._noReconnect) return;
+        reconnectNow = true;
+        setTimeout(function(){
+            socket.reconnectCount++;
+            //console.log("reconnect %d",socket.reconnectCount);
+            _this.emit("reconnect",socket);
+            socket.connect( options );
+            reconnectNow = false;
+        }, _this.options.retry);
     };
     
-    socket.on("error",function(err){
-
-        if(_this.options.retry && !!~ignore.indexOf(err.code))
-        {
-            setTimeout(function(){
-                socket.reconnect();
-                //socket.emit("reconnect" , _this.addConnect( options , cb ) );
-            }, _this.options.retry);
-        }
-    });
+    
     
     
     var _lastId = 0;
@@ -241,7 +249,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
                     _this.functions[name].apply(socket,args);
                     
                 }else{
-                      socket.callCallback( callbackId, [{ code: "NOTFOUNDFUNCTION" }]);
+                      socket.callCallback( callbackId, [new Error("NOTFOUNDFUNCTION")]);
                 }
                     
                 break;
@@ -251,9 +259,12 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
                 args = {};
                 try{
                      args = JSON.parse( p.buffer.toString("utf8", 5 ) );
+
                 }catch(e){}
                 
-               
+                if(args[0] && args[0].$type == "error" && args[0].message)
+                            args[0] = new Error(args[0].message);
+                
                 if(socket.callbacks.hasOwnProperty(callbackId)) 
                 {
                     socket.callbacks[callbackId].apply(socket,args);
@@ -322,15 +333,14 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         var nameBuffer = new Buffer( name );
         var argsBuffer = new Buffer(JSON.stringify(args));
 
-        var buff = new Buffer( 4 + nameBuffer.length + 1 + 1 + argsBuffer.length);
-        
         var timeout;
         if(_this.options.timeout > 0 && 'number' == typeof _this.options.timeout)
             timeout = setTimeout(function() {
-                callback({ error: "timeout" });
+                callback(new Error("TIMEOUT"));
                 callback  = function(){};
             }, _this.options.timeout );
-            
+
+        var buff = new Buffer( 4 + nameBuffer.length + 1 + 1 + argsBuffer.length);
         buff.writeUInt32LE( socket.addCallback(function(){
             clearTimeout(timeout);
             callback.apply(socket,arguments);
@@ -340,13 +350,29 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         buff[ nameBuffer.length + 4 ] = 0xff;
         buff[ nameBuffer.length + 5 ] = 0x1;
         argsBuffer.copy(buff, nameBuffer.length + 6 );
-
-        socket.sendPackage(buff , -1);
-
+        
+    
+        if( socket.writable && socket.readable && !_this.options.timeoutWrite){
+              socket.sendPackage(buff , -1);
+        }else{
+            var timeoutWrite;
+            timeoutWrite = setTimeout(function() {
+                callback(new Error("TIMEOUT"));
+                callback  = function(){};
+            }, _this.options.timeoutWrite );
+            socket.once("connect",function(){
+                clearTimeout(timeoutWrite);
+                socket.sendPackage(buff , -1);
+            });
+        }
     };
     
     socket.callCallback = function( id , args ){
       
+        if(args[0] && args[0] instanceof Error)
+            args[0] = { $type: "error" , message: args[0].message };
+            
+     
         var argsBuffer = new Buffer( JSON.stringify(args) );
         
         var buff = new Buffer(4 + 1 + argsBuffer.length );
@@ -427,21 +453,44 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         socket.write(buffSend);
     };
 
-
+    socket.on("error",function(err){
+        //console.log("[onnex] error");
+        if(_this.options.retry && !!~ignore.indexOf(err.code))
+        {
+           socket.reconnect();
+        }
+    });
     socket.on('end', function(){
+        //console.log("[onnex] end");
         if( options && options.alwaysConnect &&  !socket._noReconnect){
              socket.reconnect();
         }else{
             _this.sockets.splice( _this.sockets.indexOf(socket) , 1 );
         }
     });
-
+    socket.on('close', function(){
+        //console.log("[onnex] close");
+        if( options && options.alwaysConnect &&  !socket._noReconnect){
+             socket.reconnect();
+        }else{
+            _this.sockets.splice( _this.sockets.indexOf(socket) , 1 );
+        }
+    });
 };
 
 
-
 onnex.prototype.callFunction = function(){
-    this.socketDefault.callFunction.apply(null, arguments);
+    
+    var cb = Array.prototype.slice.call(arguments).pop();
+    if("function" !== typeof cb) return false;
+    
+    var socket = this.socketDefault;
+    if(socket){
+        socket.callFunction.apply(null, arguments);
+        return true;
+    } 
+    cb(new Error("NOSOCKET"));
+    return false ;
 };
 
 onnex.prototype.addFunction = function( name , fn ){
