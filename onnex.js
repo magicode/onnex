@@ -114,8 +114,10 @@ onnex.prototype.addConnect = function( options , cb ){
 
 onnex.prototype.end =  onnex.prototype.closeAll = function(){
 
-    for(var i in this.servers) this.servers[i].close();
-    for( i in this.sockets) {
+    for(var i in this.servers){
+       if(this.servers[i]._handle) this.servers[i].close(function(){});
+    } 
+    for(var i in this.sockets) {
         this.sockets[i]._noReconnect = true;
         this.sockets[i].end();
         this.sockets[i].destroy();
@@ -150,8 +152,10 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         setTimeout(function(){
             socket.reconnectCount++;
             //console.log("reconnect %d",socket.reconnectCount);
-            _this.emit("reconnect",socket);
+            
             socket.connect( options );
+            socket.emit("reconnect",socket);
+            
             reconnectNow = false;
         }, _this.options.retry);
     };
