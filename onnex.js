@@ -204,6 +204,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
                 posRead += 4;
                 p.buffer = new Buffer(p.length);
                 p.pos = 0;
+                p.subId = true;
             }
             
             
