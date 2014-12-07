@@ -283,8 +283,13 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
                 
                 
                 if(_this.publishs.hasOwnProperty(name)){
-                    if(p.type == -2) socket.publishs[name] = true;
-                    else delete socket.publishs[name];
+                    if(p.type == -2){
+                        _this.emit('socket:subscribe' , socket );
+                        socket.publishs[name] = true;
+                    }else{
+                        _this.emit('socket:unsubscribe' , socket );
+                        delete socket.publishs[name];  
+                    } 
                 }
                  
                  
