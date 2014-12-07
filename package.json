@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/magicode/onnex.git"
   },
-  "version": "0.1.9",
+  "version": "0.1.10",
   "author": "magicode",
   "keywords": [
     "pubsub",
