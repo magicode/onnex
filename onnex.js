@@ -459,7 +459,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
     };
 
     socket.on("error",function(err){
-        //console.log("[onnex] error");
+
         _this.emit('socket:error' , socket );
         
         if(_this.options.retry && !!~ignore.indexOf(err.code))
@@ -468,7 +468,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         }
     });
     socket.on('end', function(){
-        //console.log("[onnex] end");
+
         _this.emit('socket:end' , socket );
         
         if( options && options.alwaysConnect &&  !socket._noReconnect){
@@ -478,7 +478,7 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
         }
     });
     socket.on('close', function(){
-        //console.log("[onnex] close");
+
         _this.emit('socket:close' , socket );
         
         if( options && options.alwaysConnect &&  !socket._noReconnect){
