@@ -464,24 +464,13 @@ onnex.prototype._socketEvents = function( socket ,options , cb){
     };
 
     socket.on("error",function(err){
-
         _this.emit('socket:error' , socket );
-        
-        if(_this.options.retry && !!~ignore.indexOf(err.code))
-        {
-           socket.reconnect();
-        }
     });
+    
     socket.on('end', function(){
-
         _this.emit('socket:end' , socket );
-        
-        if( options && options.alwaysConnect &&  !socket._noReconnect){
-             socket.reconnect();
-        }else{
-            _this.sockets.splice( _this.sockets.indexOf(socket) , 1 );
-        }
     });
+    
     socket.on('close', function(){
 
         _this.emit('socket:close' , socket );

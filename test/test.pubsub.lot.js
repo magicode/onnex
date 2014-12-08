@@ -26,13 +26,13 @@ onnexServer.addBind({ host: process.env.IP , port: process.env.PORT } ,function(
         
         
         function next(){
-            if(count++ > 10000){
+            if(count++ > 1000){
                 onnexServer.closeAll();
                 onnexClient.closeAll();
                 return;
             }
             
-            var longBuffer = crypto.randomBytes(1000);
+            var longBuffer = crypto.randomBytes(100);
             equal = longBuffer.toString('base64');
             onnexServer.publish("msg",equal);
         }
